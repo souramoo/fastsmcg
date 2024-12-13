@@ -15,7 +15,7 @@ from rdkit import Chem, Geometry
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdMolAlign
 from torch_geometric.data import Batch
-
+import time
 
 def geomol_gen(work_path, optimizer):
     input_file = os.path.join(work_path, 'fastsmcg_input.txt')
@@ -44,6 +44,8 @@ def geomol_gen(work_path, optimizer):
     mol_chunks = [input_lines[i:i + 100] for i in range(0, len(input_lines), 100)]
 
     writer = Chem.SDWriter(output_file_sdf)
+    
+    t = []
 
     for chunk_index, chunk in enumerate(mol_chunks):
         pickle_slice = {}  # 类似这样 {'mol1': rdkit.Chem.rdchem.Mol, 'mol2': rdkit.Chem.rdchem.Mol}
@@ -51,7 +53,9 @@ def geomol_gen(work_path, optimizer):
         for index, (smiles, title, num_conf) in enumerate(chunk):
             mol_title = f'{title}_{index + 1 + chunk_index * 100}'
             try:
+                start = time.time()
                 tg_data = featurize_mol_from_smiles(smiles, dataset='drugs')
+                t += [time.time() - start]
                 data = Batch.from_data_list([tg_data])
                 model(data, inference=True, n_model_confs=num_conf)
                 model_coords = construct_conformers(data, model)
@@ -85,6 +89,9 @@ def geomol_gen(work_path, optimizer):
 
     writer.flush()
     writer.close()
+    
+    print('Average Featurization time:', np.mean(t))
+    print('n= ', len(t))
 
 
 if __name__ == '__main__':

@@ -167,7 +167,7 @@ def repeat_data(data, num_repeat):
     datas = [data.clone() for i in range(num_repeat)]
     return Batch.from_data_list(datas)
 
-
+import time
 def geodiff_gen(work_path, optimizer):
     input_file = os.path.join(work_path, 'fastsmcg_input.txt')
     output_file_sdf = os.path.join(work_path, 'fastsmcg_output.sdf')
@@ -206,6 +206,7 @@ def geodiff_gen(work_path, optimizer):
             try:
                 data_init = smiles_to_data(smiles)
                 data_init['title'] = mol_title
+                num_conf=600 * 6
                 data_init['num_confs'] = num_conf
                 dataset = PackedConformationDataset([data_init], transform=transforms)
 
@@ -217,6 +218,8 @@ def geodiff_gen(work_path, optimizer):
                 for _ in range(2):  # Maximum number of retry
                     try:
                         pos_init = torch.randn(batch.num_nodes, 3).to(config.train.device)
+                        print('num_graphs:', batch.num_graphs)
+                        s_t = time.time()
                         pos_gen, pos_gen_traj = model.langevin_dynamics_sample(
                             atom_type=batch.atom_type,
                             pos_init=pos_init,
@@ -234,6 +237,7 @@ def geodiff_gen(work_path, optimizer):
                             sampling_type='ld',
                             eta=1.0
                         )
+                        print('time:', time.time()-s_t)
                         pos_gen = pos_gen.cpu()
 
                         if config.test.save_traj:
